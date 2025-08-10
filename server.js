@@ -1,0 +1,318 @@
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+import qrcode from 'qrcode';
+import * as bot from './bot.js';
+import * as func from './functions.js';
+import os from 'os';
+
+const PORT = process.env.PORT || 3000;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const ownerPass = process.env.OWNER_PASSWORD.trim()
+if (!ownerPass) {
+  console.log('Please add a variable in Tools>Secrets with key: OWNER_PASSWORD, containing the password for the owner')
+  process.exit()
+}
+const statusText = [
+  'INACTIVE Owner has not logged in to Whatsapp.',
+  'ACTIVE Bot is ready to respond on Whatsapp.'
+]
+let status = 0
+
+export const getStatus = _=> status;
+
+let loggedInSocket = false;
+
+const createHtml = ({title="x", body=""} = {}) => {
+  return `<html>
+    <head>
+    	<style>*{color: black}</style>
+      <title>${title} </title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body>${body}</body>
+  </html>`
+}
+
+let defaultLandingPage = createHtml({
+  body: `<h3 class="info">SERVER BOT WA-REPLIT</h3>
+<p><b>Status Bot: </b><span id="status">${statusText[status]}</span></p>
+
+<form>
+<label for="phone">phone number:</label>
++<input type="text" id="phone" />
+<button id="send-btn">Send</button>
+</form>
+
+<div id="msg" style="font-size:30px">CODE</div>
+<br/>
+<img id="qr" alt="QR CODE" width="300" height="300">
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io()
+socket.emit("pageLoaded")
+
+const status = document.getElementById("status")
+const btn = document.getElementById('send-btn')
+const msg = document.getElementById('msg')
+
+btn.onclick = () => {
+  const phone = document.getElementById('phone').value.trim()
+  socket.emit('request-code', phone)
+  btn.disabled = true
+  btn.textContent = 'Procesando...'
+}
+
+socket.on("set status", function(newStatus) {
+  status.textContent = newStatus
+})
+socket.on("alert", function(msg) {
+  alert(msg)
+})
+socket.on("qr", function(qr) {
+  document.getElementById("qr").src = qr
+})
+
+socket.on("remove qr")
+
+socket.on('code', (code) => {
+  msg.textContent = 'Código recibido: '+ code
+})
+
+socket.on('tick', (seconds) => {
+  const btn = document.getElementById('send-btn')
+  if (seconds > 0) {
+    btn.disabled = true
+    btn.textContent = 'Wait ' + seconds+ 's'
+  } else {
+    btn.disabled = false
+    btn.textContent = 'Send'
+  }
+})
+
+socket.on('error', (err) => {
+  msg.textContent = err
+  btn.disabled = false
+  btn.textContent = 'Send'
+})
+</script>`})
+
+const setLandingPage = newPage => { defaultLandingPage = newPage }
+
+const app = express()
+const server = http.createServer(app)
+const io = new Server(server)
+
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.set('Surrogate-Control', 'no-store');
+  next();
+});
+const COOLDOWN_MS = 60000
+const perNumberState = new Map() // phone -> { last: number, pending: boolean }
+
+io.on('connection', socket => {
+  console.log('client connected', socket.id)
+  if (loggedInSocket) return socket.emit('alert', 'The owner has already logged in.')
+  if (status === 1) return socket.emit('alert', 'The bot is already active.')
+  loggedInSocket = socket.id
+  console.log(loggedInSocket + " saved")
+  
+  socket.on('pageLoaded', () => {
+    if (!f.getQR) return
+    const qr = f.getQR()
+    if (!qr) return
+    console.log('server.js SEND QR password good')
+    sendQR(qr)
+  })
+
+  socket.on('request-code', async (phone) => {
+    const now = Date.now()
+    const state = perNumberState.get(phone) || { last: 0, pending: false }
+    const remaining = COOLDOWN_MS - (now - state.last)
+
+    if (remaining > 0) {
+      // Ya en cooldown: envía tick actualizado
+      let timeLeft = Math.ceil(remaining / 1000)
+      const interval = setInterval(() => {
+        socket.emit('tick', timeLeft--)
+        if (timeLeft < 0) clearInterval(interval)
+      }, 1000)
+      return
+    }
+
+    state.pending = true
+    perNumberState.set(phone, state)
+
+    try {
+      socket.emit("alert", phone)
+      console.log(phone)
+      const code = await bot.requestPairingCode(phone);
+      console.log(
+        code)
+      state.last = Date.now()
+      socket.emit('code', code)
+
+      // Arranca countdown desde el servidor
+      let timeLeft = COOLDOWN_MS / 1000
+      const interval = setInterval(() => {
+        socket.emit('tick', timeLeft--)
+        if (timeLeft < 0) clearInterval(interval)
+      }, 1000)
+    } catch (err) {
+      socket.emit('error', 'No se pudo generar el código' + err.stack)
+    } finally {
+      state.pending = false
+      perNumberState.set(phone, state)
+    }
+  })
+  
+  
+  socket.on('login', pass => {
+    console.log('login')
+    if (!pass) return
+    console.log('pass exists!')
+    if (pass === ownerPass) {
+      socket.emit('alert',  'CORRECT PASSWORD')
+      console.log('pass == ownerPass')
+      
+
+      sendCode(f.getCode())
+      
+      
+      
+    } else {
+      socket.emit('alert', 'Incorrect password.')
+    }
+  })
+  socket.on('disconnect', () => {
+    console.log('client disconnected', socket.id)
+    console.log('loggedInSocket === socket.id', loggedInSocket === socket.id, 'loggedInSocket ahora es null')
+    if (loggedInSocket === socket.id) loggedInSocket = null
+  })
+})
+
+let selectedMode = null;
+let botEvents;
+export function setEvents(value){
+  botEvents = value;
+}
+
+
+app.get('/', (req, res) => {
+  if(typeof bot.isLoggedIn() === "undefined"){
+    res.send("<h1>Error de isLoggedIn()</h1>")
+  }
+
+  if (bot.isLoggedIn()) {
+    const body = createHtml({body: `<h2>✅ Ya estás logueado en WhatsApp</h2>`})
+    res.send(body);
+    bot.start({botEvents})
+  }else {
+    res.send(defaultLandingPage)
+  }
+})
+
+app.use(express.urlencoded({ extended: true }));
+
+app.post('/mode', (req, res) => {
+  const mode = req.body.mode;
+  if (mode === bot.MODES[0]) {
+    bot.switchMode({ mode: bot.MODES[0] })
+    res.send(qrPage);
+    return
+  }
+  if (mode === bot.MODES[1]) {
+    bot.switchMode({ mode: bot.MODES[1] })
+    return res.send(createHtml({body: `<h2>Ingresa tu número de teléfono:</h2>
+          <form method="POST" action="/send-code">
+            <input type="text" name="phone" placeholder=":)" required />
+            <button type="submit">Enviar código</button>
+          </form>`}));
+  }
+
+  return res.send(createHtml({body: `<p style="color:red;">⚠️ Modo inválido</p>
+        <a href="/">Volver</a>
+     `}))
+  
+});
+
+app.post('/send-code', (req, res) => {
+  const phone = req.body.phone;
+  f.phone = phone;
+  res.send(createHtml({body: numberPage(phone)}))
+  
+  return
+});
+
+
+app.use('/gifs', express.static(path.join(__dirname, 'gifs')));
+
+app.get('/bot', async (req, res) => {
+  const url = decodeURIComponent(req.query.url);
+  
+  res.send('URL recibida: ' + url);
+  while (!bot.isActive) await func.pause()
+  
+  bot.sendMessage(bot.ownerId, { text: `downloading...` })
+  if (url.startsWith('https://www.youtube.com')) {
+   /* let ytstream = ytdl(url, {
+      filter: 'videoandaudio',
+      //quality: res?.query?.quality ?? 'highestvideo'
+    })
+    console.log('downloading yt')
+    return await bot.sendMessage(bot.ownerId, { document: { stream: ytstream }, mimetype: 'video/mp4' });*/
+  }
+  await bot.sendMessage(bot.ownerId, { document: { url: url }, mimetype: 'video/mp4' });
+});
+app.get('/owner', (req, res) => {
+  res.send(makeMainPage())
+})
+
+server.listen(PORT)
+
+const f = { getQR: null, phone: null}
+
+function setStatus(newStatus) {
+  status = newStatus
+  io.emit('set status', statusText[newStatus])
+}
+
+function sendQR(qr) {
+  console.log('SEND-QR')
+  if (!loggedInSocket) return
+  //console.log('🌟loggedInSocket 👇')
+  //console.log('🌟', { loggedInSocket, qr })
+  qrcode.toDataURL(qr, function(err, url) {
+    io.to(loggedInSocket).emit('qr', url)
+    console.log('Scan QR in Page ')
+  })
+}
+function sendCode(code){
+  console.log("sendCode")
+  if (!loggedInSocket) return
+  io.to(loggedInSocket).emit('code', code);
+  console.log("Code: " + code)
+}
+function removeQR() {
+  if (!loggedInSocket) return
+  io.to(loggedInSocket).emit('remove qr')
+}
+
+export {
+  app,
+  f,
+  sendQR,
+  sendCode,
+  setStatus,
+  removeQR
+};
