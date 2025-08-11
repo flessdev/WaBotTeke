@@ -224,37 +224,6 @@ app.get('/', (req, res) => {
 
 app.use(express.urlencoded({ extended: true }));
 
-app.post('/mode', (req, res) => {
-  const mode = req.body.mode;
-  if (mode === bot.MODES[0]) {
-    bot.switchMode({ mode: bot.MODES[0] })
-    res.send(qrPage);
-    return
-  }
-  if (mode === bot.MODES[1]) {
-    bot.switchMode({ mode: bot.MODES[1] })
-    return res.send(createHtml({body: `<h2>Ingresa tu número de teléfono:</h2>
-          <form method="POST" action="/send-code">
-            <input type="text" name="phone" placeholder=":)" required />
-            <button type="submit">Enviar código</button>
-          </form>`}));
-  }
-
-  return res.send(createHtml({body: `<p style="color:red;">⚠️ Modo inválido</p>
-        <a href="/">Volver</a>
-     `}))
-  
-});
-
-app.post('/send-code', (req, res) => {
-  const phone = req.body.phone;
-  f.phone = phone;
-  res.send(createHtml({body: numberPage(phone)}))
-  
-  return
-});
-
-
 app.use('/gifs', express.static(path.join(__dirname, 'gifs')));
 
 app.get('/bot', async (req, res) => {
@@ -293,14 +262,14 @@ function sendQR(qr) {
   //console.log('🌟loggedInSocket 👇')
   //console.log('🌟', { loggedInSocket, qr })
   qrcode.toDataURL(qr, function(err, url) {
-    io.to(loggedInSocket).emit('qr', url)
+    io.emit('qr', url)
     console.log('Scan QR in Page ')
   })
 }
 function sendCode(code){
   console.log("sendCode")
   if (!loggedInSocket) return
-  io.to(loggedInSocket).emit('code', code);
+  io.emit('code', code);
   console.log("Code: " + code)
 }
 function removeQR() {

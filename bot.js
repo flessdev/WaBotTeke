@@ -52,7 +52,7 @@ async function start() {
   console.log('Versión de WhatsApp Web:', version)
   console.log('¿Es la más reciente?', isLatest)
 
-  const {authState, state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
+  const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
   //const { state, saveCreds } = await useSQLiteAuthState();
   
   session = makeWASocket.default({
@@ -107,7 +107,7 @@ async function start() {
         console.log("UNAUTHORIZED. Deleting login data...");
         await fs.rm('./auth_info_baileys', { recursive: true })   
       }
-      setInterval(start, 5000)
+      setTimeout(start, 5000)
     } 
     
     if (update.receivedPendingNotifications) {
