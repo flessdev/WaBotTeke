@@ -122,6 +122,7 @@ const perNumberState = new Map() // phone -> { last: number, pending: boolean }
 
 io.on('connection', socket => {
   console.log('client connected', socket.id)
+  socket.emit("alert", socket.id)
   if (loggedInSocket) return socket.emit('alert', 'The owner has already logged in.')
   if (status === 1) return socket.emit('alert', 'The bot is already active.')
   loggedInSocket = socket.id
@@ -209,14 +210,10 @@ export function setEvents(value){
 
 
 app.get('/', (req, res) => {
-  if(typeof bot.isLoggedIn() === "undefined"){
-    res.send("<h1>Error de isLoggedIn()</h1>")
-  }
-
-  if (bot.isLoggedIn()) {
+  if (status) {
     const body = createHtml({body: `<h2>✅ Ya estás logueado en WhatsApp</h2>`})
     res.send(body);
-    bot.start({botEvents})
+    bot.start()
   }else {
     res.send(defaultLandingPage)
   }

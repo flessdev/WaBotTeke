@@ -19,7 +19,6 @@ const ownerId = process.env.OWNER_NUMBER + '@s.whatsapp.net';
 let session = null;
 let sessionPromiseResolver
 let botNumber, botId
-export let isActive = false;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -87,7 +86,7 @@ async function start() {
       botId = session.user.id.replace(/:\d+/, '')
       botNumber = botId.slice(0, -15)
       console.log(`🔴Connected. ID: ${botId}`)
-      isActive = true
+      
       if(events.when_ready) await events.when_ready()
       
       //sessionPromiseResolver(session)
@@ -101,14 +100,24 @@ async function start() {
     
     if (update.connection === "close") {
       console.log("session is closed")
-      isActive = false
-      console.log(lastDisconnect?.error?.output?.statusCode)
-      if (lastDisconnect?.error?.output?.statusCode === 401) {
+      const status = lastDisconnect?.error?.output?.statusCode;
+      console.log(status)
+      /*if (lastDisconnect?.error?.output?.statusCode === 401) {
         console.log("UNAUTHORIZED. Deleting login data...");
         await fs.rm('./auth_info_baileys', { recursive: true })   
       }
-      setTimeout(start, 5000)
+      setTimeout(start, 5000)*/
+
+      if(status === DisconnectReason.restartRequired) {
+        start()
+      }
+      if(status === DisconnedReason.loggedOut) {
+        console.log('Connection closed. You are logged out.')
+        await fs.rm('./auth_info_baileys', { recursive: true })
+       start()  //Volver a pedir QRs
+      }
     } 
+    
     
     if (update.receivedPendingNotifications) {
       console.log('receivePendingNotifications')
@@ -137,7 +146,9 @@ async function start() {
     if (!id || !isValidRecipient(id)) return; // ⚠️ NUEVA VALIDACIÓN
     if (!text) return;
     
-    if(events?.when_get_message) await events.when_get_message(id, text)
+    if(events?.when_get_message) await events.when_get_message(id, text);
+    if(events?.when_get_message2)  await events.when_get_message2(id, text);
+    
     const targetPath = 'tempfile.bin';
     //try {
     //  fs.unlinkSync(targetPath)
@@ -155,7 +166,7 @@ async function start() {
                               url: link
                           },
                           caption: 'hello word',
-                        ptv: true // if set to true, will send as a `video note`
+                        
                       }
                   )
     }

@@ -1,8 +1,12 @@
 import * as bot from './bot.js';
 import * as server from './server.js';
 import got from 'got';
+import fs from 'fs';
 
 console.log('INDEX EJECUTADO')
+let anotherEventsIsActive = false;
+const anotherEvents = {};
+
 
 process.on('unhandledRejection', async error => {
   console.error('UnhandledRejection:', error);
@@ -14,39 +18,31 @@ process.on('unhandledRejection', async error => {
   process.exit(1)
 });
 
+function readEventsFile() {
+  if (!fs.existsSync(EVENTS_FILE)) return '';
+  return fs.readFileSync(EVENTS_FILE, 'utf8');
+}
+function writeEventsFile(content) {
+  fs.writeFileSync(EVENTS_FILE, content, 'utf8');
+}
+
 const events = {}
 events.when_ready = async function() {
   bot.sendMessage(bot.ownerId, { text: 'Connected' })
 }
 
-
 events.when_get_message = async function(id, message) {
-  if (message.startsWith('hi')) {
+  if (message.startsWith('-hi')) {
     bot.queueMessage(id, { text: 'Hello ' });
   }
-
-  
-  if (message.startsWith('-page')) {
-    let link = message.slice(5);
-    console.log('Downloading page', '👇')
-    bot.sendMessage(id, { text: `downloading...` })
-    bot.sendMessage(id, { document: { url: link }, mimetype: 'text/html' });
+  if (message.equals('get events')) {
+    const events = readEventsFile();
+    bot.queueMessage(id, { text: events });
   }
-  if (message.startsWith('-site')) {
-    let link = message.slice(5);
-    console.log('Downloading page', '👇')
-    bot.sendMessage(id, { text: `downloading...` })
-    got(link).then(result => {
-      console.log(result.body);
-      bot.sendMessage(id, { document: { url: link }, mimetype: 'text/html' });
-    }).catch(err => {
-      console.log(err);
-    });
-
+  if(message.equals('set events')){
+    
   }
-
-
-
+  if(anotherEventsIsActive) eval(anotherEvents)
 }
 
 //bot.start(events)
