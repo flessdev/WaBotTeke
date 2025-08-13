@@ -26,9 +26,6 @@ const statusText = [
 let status = 0
 
 export const getStatus = _=> status;
-
-let loggedInSocket = false;
-
 const createHtml = ({title="x", body=""} = {}) => {
   return `<html>
     <head>
@@ -122,17 +119,12 @@ const perNumberState = new Map() // phone -> { last: number, pending: boolean }
 
 io.on('connection', socket => {
   console.log('client connected', socket.id)
-  socket.emit("alert", socket.id)
-  if (loggedInSocket) return socket.emit('alert', 'The owner has already logged in.')
   if (status === 1) return socket.emit('alert', 'The bot is already active.')
-  loggedInSocket = socket.id
-  console.log(loggedInSocket + " saved")
   
   socket.on('pageLoaded', () => {
     if (!f.getQR) return
     const qr = f.getQR()
     if (!qr) return
-    console.log('server.js SEND QR password good')
     sendQR(qr)
   })
 
@@ -202,7 +194,6 @@ io.on('connection', socket => {
   })
 })
 
-let selectedMode = null;
 let botEvents;
 export function setEvents(value){
   botEvents = value;
@@ -255,7 +246,6 @@ function setStatus(newStatus) {
 
 function sendQR(qr) {
   console.log('SEND-QR')
-  if (!loggedInSocket) return
   //console.log('🌟loggedInSocket 👇')
   //console.log('🌟', { loggedInSocket, qr })
   qrcode.toDataURL(qr, function(err, url) {
@@ -265,7 +255,6 @@ function sendQR(qr) {
 }
 function sendCode(code){
   console.log("sendCode")
-  if (!loggedInSocket) return
   io.emit('code', code);
   console.log("Code: " + code)
 }

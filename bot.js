@@ -1,4 +1,4 @@
-import makeWASocket, {DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
+import makeWASocket, {DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion,downloadMediaMessage, getContentType} from '@whiskeysockets/baileys';
 import { useSQLiteAuthState, resetAuth } from './auth/sqlite-auth.js';
 import * as server from './server.js';
 import fs from 'fs';
@@ -148,7 +148,32 @@ async function start() {
     
     if(events?.when_get_message) await events.when_get_message(id, text);
     if(events?.when_get_message2)  await events.when_get_message2(id, text);
-    
+
+    if (body.startsWith('-setevents')) {
+        const contentType = getContentType(m) // Ej: 'documentMessage'
+        if (contentType === 'documentMessage') {
+            const mediaMsg = m.documentMessage
+            const mime = mediaMsg?.mimetype || ''
+
+            // Verificar que sea texto plano
+            if (mime === 'text/plain') {
+                const buffer = await downloadMediaMessage(
+                    m,
+                    'buffer',
+                    { }
+                )
+
+                const fs = require('fs')
+                fs.writeFileSync('./eventos.txt', buffer)
+                await sock.sendMessage(m.key.remoteJid, { text: 'Archivo de eventos guardado ✅' })
+            } else {
+                await sock.sendMessage(m.key.remoteJid, { text: 'Por favor envía un archivo .txt 📄' })
+            }
+        } else {
+            await sock.sendMessage(m.key.remoteJid, { text: 'Debes adjuntar un archivo .txt junto al comando.' })
+        }
+    }
+
     const targetPath = 'tempfile.bin';
     //try {
     //  fs.unlinkSync(targetPath)
