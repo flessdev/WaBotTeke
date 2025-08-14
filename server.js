@@ -9,10 +9,34 @@ import * as bot from './bot.js';
 import * as func from './functions.js';
 import os from 'os';
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 80;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+let fullDomainName = process.env.FULL_DOMAIN_NAME || ""; 
+let isKeepAlive = false;
+export const setFullDomainName = v => fullDomainName = v;
+
+export async function ping(){
+ if(!fullDomainName) return;
+  try{
+  const url = `https://${fullDomainName}/ping`;
+  const res = await fetch(url);
+  const data = await res.text();
+  return data;
+  }catch(e){
+   return e.stack;
+  }
+}
+export function startAutoPing(){
+ setInterval(async () => {
+  const res = await ping();
+  console.log(res);
+ }, 300_000); // 1 min
+}
+if(fullDomainName) startAutoPing();
+
 
 const ownerPass = process.env.OWNER_PASSWORD.trim()
 if (!ownerPass) {
@@ -208,6 +232,9 @@ app.get('/', (req, res) => {
   }else {
     res.send(defaultLandingPage)
   }
+})
+app.get('/ping', (req, res) => {
+  res.status(200).send('hi')
 })
 
 app.use(express.urlencoded({ extended: true }));

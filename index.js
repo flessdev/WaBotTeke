@@ -2,10 +2,13 @@ import * as bot from './bot.js';
 import * as server from './server.js';
 import got from 'got';
 import fs from 'fs';
+import fetch from 'node-fetch';
+import { load } from 'cheerio';
+import axios from 'axios';
 
 console.log('INDEX EJECUTADO')
 let anotherEventsIsActive = false;
-const anotherEvents = {};
+let anotherEvents = {};
 
 
 process.on('unhandledRejection', async error => {
@@ -18,9 +21,9 @@ process.on('unhandledRejection', async error => {
   process.exit(1)
 });
 
-function readEventsFile() {
-  if (!fs.existsSync(EVENTS_FILE)) return '';
-  return fs.readFileSync(EVENTS_FILE, 'utf8');
+function readFile(file) {
+  if (!fs.existsSync(file)) return '';
+  return fs.readFileSync(file, 'utf8');
 }
 function writeEventsFile(content) {
   fs.writeFileSync(EVENTS_FILE, content, 'utf8');
@@ -33,16 +36,39 @@ events.when_ready = async function() {
 
 events.when_get_message = async function(id, message) {
   if (message.startsWith('-hi')) {
-    bot.queueMessage(id, { text: 'Hello ' });
+    bot.queueMessage(id, { text: 'Hello' });
   }
-  if (message.equals('get events')) {
-    const events = readEventsFile();
-    bot.queueMessage(id, { text: events });
+  if (message == "-off"){
+      process.exit(1);
   }
-  if(message.equals('set events')){
+  if (message.startsWith('-setFDN ')){
+     const FDN = message.slice(8);
+     server.setFullDomainName(FDN);
+     bot.queueMessage(id, {text: FDN + " establecido"})
+     const res =  await server.ping()
+     bot.queueMessage(id, {text: res});
+     if(res != 'hi') return;
+     server.startAutoPing();
+     
+  }
+  if (message == '-getevents') {
+    bot.queueMessage(id, {
+      document: {url: './eventos.txt'},
+      mimetype: 'text/plain',
+      filename: 'events.txt'
+    });
+  }
+  if(message == 'set events'){
     
   }
-  if(anotherEventsIsActive) eval(anotherEvents)
+  if(message == '-activeEvents'){
+    anotherEvents = readFile('./eventos.txt')
+   anotherEventsIsActive = true
+  }
+  if(anotherEventsIsActive) {
+    //console.log(anotherEvents)
+    eval(anotherEvents)
+  }
 }
 
 //bot.start(events)
