@@ -213,8 +213,6 @@ io.on('connection', socket => {
   })
   socket.on('disconnect', () => {
     console.log('client disconnected', socket.id)
-    console.log('loggedInSocket === socket.id', loggedInSocket === socket.id, 'loggedInSocket ahora es null')
-    if (loggedInSocket === socket.id) loggedInSocket = null
   })
 })
 
@@ -286,8 +284,7 @@ function sendCode(code){
   console.log("Code: " + code)
 }
 function removeQR() {
-  if (!loggedInSocket) return
-  io.to(loggedInSocket).emit('remove qr')
+  io.emit('remove qr')
 }
 
 export {
