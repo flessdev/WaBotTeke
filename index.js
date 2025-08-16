@@ -5,6 +5,10 @@ import fs from 'fs';
 import fetch from 'node-fetch';
 import { load } from 'cheerio';
 import axios from 'axios';
+import { startGlobalWatcher, restoreAll } from "./autosync.js";
+
+await restoreAll(); // Trae los datos guardados antes de iniciar el bot
+startGlobalWatcher();           // Empieza a vigilar cambios y sincronizar
 
 console.log('INDEX EJECUTADO')
 let anotherEventsIsActive = false;
