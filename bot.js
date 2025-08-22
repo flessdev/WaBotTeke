@@ -211,7 +211,7 @@ async function start() {
     //console.log(m)
     //console.log("contentType: " + contentType)
     console.log(mimetype)
-    
+
     if (caption == '-setevents') {
       if (contentType === 'documentMessage') {
         if (mimetype === 'text/plain' || mimetype == "application/javascript") {
@@ -413,6 +413,10 @@ export function queueMessage(jid, content) {
 }
 
 async function processQueue() {
+  setTimeout(() => {
+    isSending = false;
+    processQueue();
+  }, 1000); // espera 1 segundo entre cada envío
   if (isSending || messageQueue.length === 0) return;
   isSending = true;
 
@@ -426,10 +430,7 @@ async function processQueue() {
     }
   }
 
-  setTimeout(() => {
-    isSending = false;
-    processQueue();
-  }, 1000); // espera 1 segundo entre cada envío
+
 }
 
 function isLoggedIn() {
