@@ -10,12 +10,10 @@ import Pino from 'pino';
 import { usePostgreSQLAuthState } from "./postgres-baileys.js";
 import { existsSync } from 'fs'
 import { Pool } from 'pg';
-import { saveEvents, getEvents } from './eventsStore.js';
-import { setIsActive, setOwnerJid } from './botState.js';
+import * as eventsStore from './eventsStore.js';
+import { setIsActive, getIsActive, setOwnerJid } from './botState.js';
 import { injectSender, queueMessage } from './messageQueue.js';
 import { setQR, clearQR } from './qrState.js';
-let QR
-server.f.getQR = () => QR
 
 let session = null;
 let sessionPromiseResolver
@@ -45,7 +43,13 @@ export function setEvents(p1) {
 
 async function start() {
   const { version, isLatest } = await fetchLatestBaileysVersion();
-  injectSender((jid, content) => session.sendMessage(jid, content));
+  injectSender(async (jid, content) => {
+    try{
+      await session.sendMessage(jid, content)
+    } catch (e) {
+      console.error(e);// Tab to edit
+    }
+  });
 
   console.log('Versión de WhatsApp Web:', version)
   console.log('¿Es la más reciente?', isLatest)
@@ -129,7 +133,6 @@ async function start() {
 
     if (update.receivedPendingNotifications) {
       console.log('receivePendingNotifications')
-      isActive = true;
     }
   })
 
@@ -158,7 +161,7 @@ async function start() {
       m.message?.extendedTextMessage?.text || "";
     console.log("text: " + text)
 
-    let id = messages[0].key?.remoteJid
+    let id = m.key?.remoteJid
 
     if (!id || !isValidRecipient(id)) return; // ⚠️ NUEVA VALIDACIÓN
 
@@ -201,26 +204,12 @@ async function start() {
     }
 
 
-    if (events?.when_get_message) await events.when_get_message(id, text, messages);
+    if (events?.when_get_message) await events.when_get_message({messages, downloadMediaMessage, eventsStore, queueMessage, sendMessage, getContentType});
       //console.log(m)
     //console.log("contentType: " + contentType)
     console.log(mimetype)
 
-    if (caption == '-setevents') {
-      if (contentType === 'documentMessage') {
-        if (mimetype === 'text/plain' || mimetype == "application/javascript") {
-          const buffer = await downloadMediaMessage(m, 'buffer', {});
-          const text = buffer.toString('utf8');
-          await saveEvents('default', text); // guarda en PG
-          //fs.writeFileSync('./eventos.txt', buffer)
-          await session.sendMessage(id, { text: 'Archivo de eventos guardado ✅' })
-        } else {
-          await session.sendMessage(id, { text: 'Por favor envía un archivo .txt 📄' })
-        }
-      } else {
-        await session.sendMessage(id, { text: 'Debes adjuntar un archivo .txt junto al comando.' })
-      }
-    }
+
 
 
     if (text.startsWith('-url')) {
@@ -286,7 +275,7 @@ export async function requestPairingCode(number) {
 }
 
 export async function sendMessage(...args) {
-  if (!isActive) {
+  if (!getIsActive()) {
     console.error('Bot aún no activo para enviar mensajes');
     return;
   } else {

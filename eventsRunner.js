@@ -6,10 +6,7 @@ export function maybeRunEvents(context) {
   const code = getEventsCode();
 
   try {
-    const fn = new Function('ctx', `
-      const { axios, fetch, id, message, messages, queueMessage } = ctx;
-      ${code}
-    `);
+    const fn = new Function('ctx', code);
     fn(context);
   } catch (err) {
     console.error('❌ Error en ejecución de eventos:', err);

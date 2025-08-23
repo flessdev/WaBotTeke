@@ -1,5 +1,5 @@
 modules = ["nodejs-20", "web"]
-run = "node index.js"
+run = "npm start"
 
 [nix]
 channel = "stable-25_05"

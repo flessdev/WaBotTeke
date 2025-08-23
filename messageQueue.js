@@ -2,28 +2,32 @@ import { getIsActive } from './botState.js';
 
 const queue = [];
 let isSending = false;
-let senderFn = null; // inyectado desde bot.js
+let senderFn = null;
 
 export const injectSender = fn => { senderFn = fn };
 
 export function queueMessage(jid, content) {
   queue.push({ jid, content });
-  processQueue();
+  if (!isSending) processQueue();
 }
 
-function processQueue() {
-  setTimeout(() => {
+async function processQueue() {
+  if (queue.length === 0) {
     isSending = false;
-    processQueue();
-  }, 1000);
+    return;
+  }
 
-  if (isSending || queue.length === 0) return;
   isSending = true;
-
   const { jid, content } = queue.shift();
-  if (!getIsActive() || !senderFn) return;
 
-  senderFn(jid, content).catch(err => {
-    console.error('❌ Error al enviar:', err);
-  });
+  if (getIsActive() && senderFn) {
+    try {
+      await senderFn(jid, content); // espera envío real
+    } catch (err) {
+      console.error('❌ Error al enviar:', err);
+    }
+  }
+
+  // espera 1 segundo antes de siguiente envío
+  setTimeout(processQueue, 1000);
 }
