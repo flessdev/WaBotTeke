@@ -207,7 +207,7 @@ export function setEvents(value){
 
 
 app.get('/', (req, res) => {
-  if (bot.getIsActive()) {
+  if (bot?.getIsActive()) {
     const body = createHtml({body: `<h2>✅ Ya estás logueado en WhatsApp</h2>`})
     res.send(body);
     bot.start()
