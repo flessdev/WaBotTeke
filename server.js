@@ -225,9 +225,18 @@ app.use('/gifs', express.static(path.join(__dirname, 'gifs')));
 
 app.get('/bot', async (req, res) => {
   const url = decodeURIComponent(req.query.url);
-
-  res.send('URL recibida: ' + url);
-  queueMessage(getOwnerJid(), { text: "-doc " + url });
+  const cmd = decodeURIComponent(req.query.cmd);
+  //res.send('URL recibida: ' + url);
+  
+  const cmdLine = `${cmd} ${url || ''}`.trim();
+  await dispatch(cmdLine, buildCtx({
+    id: getOwnerJid(),
+    message: { conversation: cmdLine },
+    messages: [],
+    queueMessage,
+    bot: b
+  }));
+  res.send('✅ Ejecutado');
 });
 
 app.get('/owner', (req, res) => {

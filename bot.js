@@ -1,5 +1,4 @@
 import makeWASocket, { DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion, downloadMediaMessage, getContentType, isJidUser } from '@whiskeysockets/baileys';
-import { useSQLiteAuthState, resetAuth } from './auth/sqlite-auth.js';
 import * as server from './server.js';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -66,9 +65,7 @@ async function start() {
 
   const sessionId = '1234';
   const { state, saveCreds, deleteSession } = await usePostgreSQLAuthState(pool, sessionId);
-  //const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
-  //const { state, saveCreds } = await useSQLiteAuthState()
-
+  
   session = makeWASocket.default({
     auth: state,
     printQRInTerminal: false,
