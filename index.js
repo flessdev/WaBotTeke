@@ -1,95 +1,52 @@
-import * as bot from './bot.js';
-import * as server from './server.js';
-import got from 'got';
-import fs from 'fs';
-import fetch from 'node-fetch';
-import { load } from 'cheerio';
-import axios from 'axios';
-import { saveEvents, getEvents } from './eventsStore.js';
+import { getOwnerJid } from './botState.js';
+import { queueMessage, start as startBot, setEvents as setBotEvents } from './bot.js';
+import { setFullDomainName, startAutoPing, ping } from './server.js';
+import { getEvents } from './eventsStore.js';
+import { setEventsActive, setEventsCode } from './eventsState.js';
+import { createEventsContext } from './eventsContext.js';
+import { maybeRunEvents } from './eventsRunner.js';
 
-//import { startGlobalWatcher, restoreAll } from "./autosync.js";
+console.log('INDEX EJECUTADO');
 
-//await restoreAll(); // Trae los datos guardados antes de iniciar el bot
-//startGlobalWatcher();           // Empieza a vigilar cambios y sincronizar
+const events = {};
+events.when_ready = async () => {
+  queueMessage(getOwnerJid(), { text: 'Connected' });
+};
 
-console.log('INDEX EJECUTADO')
-let anotherEventsIsActive = false;
-let anotherEvents = {};
-
-
-process.on('unhandledRejection', async error => {
-  console.error('UnhandledRejection:', error);
-  if (bot.getIsActive()) {
-    await bot.sendMessage(bot.ownerJid, { text: 'UnhandledRejection: ' + error.stack })
-    process.exit(1);
-    return
-  }
-  process.exit(1)
-});
-
-function readFile(file) {
-  if (!fs.existsSync(file)) return '';
-  return fs.readFileSync(file, 'utf8');
-}
-
-function writeEventsFile(content) {
-  fs.writeFileSync(EVENTS_FILE, content, 'utf8');
-}
-
-const events = {}
-events.when_ready = async function() {
-  bot.sendMessage(bot.ownerJid, { text: 'Connected' })
-}
-
-events.when_get_message = async function(id, message, messages) {
+events.when_get_message = async (id, message, messages) => {
   if (message.startsWith('-hi')) {
-    bot.queueMessage(id, { text: 'Hello' });
+    queueMessage(id, { text: 'Hello' });
   }
-  if (message == "-off") {
+  if (message === '-off') {
     process.exit(0);
   }
   if (message.startsWith('-setFDN ')) {
     const FDN = message.slice(8);
-    server.setFullDomainName(FDN);
-    bot.queueMessage(id, { text: FDN + " establecido" })
-    const res = await server.ping()
-    bot.queueMessage(id, { text: res });
-    if (res != 'hi') return;
-    server.startAutoPing();
-
+    setFullDomainName(FDN);
+    queueMessage(id, { text: `${FDN} establecido` });
+    const res = await ping();
+    queueMessage(id, { text: res });
+    if (res === 'hi') startAutoPing();
   }
-  if (message == '-getevents') {
+  if (message === '-getevents') {
+    const content = await getEvents('default');
+    queueMessage(id, { text: content || 'No hay eventos guardados.' });
+  }
+  if (message === '-enableevents') {
     const content = await getEvents('default');
     if (content) {
-      bot.queueMessage(id, { text: content });
+      setEventsCode(content);
+      setEventsActive(true);
+      queueMessage(id, { text: 'eventos activados' });
     } else {
-      bot.queueMessage(id, { text: 'No hay eventos guardados.' });
+      queueMessage(id, { text: 'No hay eventos guardados.' });
     }
-    /*bot.queueMessage(id, {
-      document: { url: './eventos.txt' },
-      mimetype: 'text/plain',
-      filename: 'events.txt'
-    });*/
   }
-  if (message == '-enableevents') {
-    const content = await getEvents('default');
-    if (content) {
-      anotherEvents = content;
-      anotherEventsIsActive = true;
-      bot.queueMessage(id, { text: 'eventos activados' });
-    } else {
-      bot.queueMessage(id, { text: 'No hay eventos guardados.' });
-    }
-    /*anotherEvents = readFile('./eventos.txt')
-    anotherEventsIsActive = true
-    bot.queueMessage(id, {text: "eventos añadidos"})*/
-  }
-  if (anotherEventsIsActive) {
-    //console.log(anotherEvents)
-    eval(anotherEvents)
-  }
-}
 
-//bot.start(events)
-bot.setEvents(events)
-bot.start()
+  // 🚀 Ejecutar el script dinámico con contexto inyectado
+  const ctx = createEventsContext({ id, message, messages, queueMessage });
+  maybeRunEvents(ctx);
+};
+
+setBotEvents(events);
+startBot();

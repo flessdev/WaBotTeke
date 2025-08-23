@@ -11,11 +11,11 @@ import { usePostgreSQLAuthState } from "./postgres-baileys.js";
 import { existsSync } from 'fs'
 import { Pool } from 'pg';
 import { saveEvents, getEvents } from './eventsStore.js';
-
+import { setIsActive, setOwnerJid } from './botState.js';
+import { injectSender, queueMessage } from './messageQueue.js';
+import { setQR, clearQR } from './qrState.js';
 let QR
 server.f.getQR = () => QR
-let isActive = false;
-export const getIsActive =_=> isActive;
 
 let session = null;
 let sessionPromiseResolver
@@ -44,7 +44,8 @@ export function setEvents(p1) {
 
 
 async function start() {
-  const { version, isLatest } = await fetchLatestBaileysVersion()
+  const { version, isLatest } = await fetchLatestBaileysVersion();
+  injectSender((jid, content) => session.sendMessage(jid, content));
 
   console.log('Versión de WhatsApp Web:', version)
   console.log('¿Es la más reciente?', isLatest)
@@ -91,19 +92,20 @@ async function start() {
     const { connection, lastDisconnect, qr } = update;
 
     if (update.connection == "open") {
-      isActive = true;
-      ownerJid = session.user.id.replace(/:\d+/, '')
-      botNumber = ownerJid.slice(0, -15)
+      setIsActive(true);
+      const cleanOwner = session.user.id.replace(/:\d+/, '');
+      setOwnerJid(cleanOwner);
+      botNumber = cleanOwner.slice(0, -15);
       console.log(`🔴 Connected. ID: ${ownerJid}`)
       if (events.when_ready) await events.when_ready()
     }
     if (qr) {
-      QR = qr
-      server.sendQR(qr)
+      setQR(qr);
     }
 
     if (update.connection === "close") {
-      isActive = false;
+      setIsActive(false);
+      clearQR();
       console.log("session is closed")
       const status = lastDisconnect?.error?.output?.statusCode;
       console.log(status)
@@ -297,36 +299,7 @@ export async function sendMessage(...args) {
 
 }
 
-const messageQueue = [];
-let isSending = false;
-
-export function queueMessage(jid, content) {
-  messageQueue.push({ jid, content });
-  processQueue();
-}
-
-async function processQueue() {
-  setTimeout(() => {
-    isSending = false;
-    processQueue();
-  }, 1000); // espera 1 segundo entre cada envío
-  if (isSending || messageQueue.length === 0) return;
-  isSending = true;
-
-  const { jid, content } = messageQueue.shift();
-  if (jid.endsWith('@s.whatsapp.net')) {
-    try {
-      if (!isSessionInitialized()) return;
-      await session.sendMessage(jid, content);
-    } catch (e) {
-      console.error('❌ Error al enviar:', e);
-    }
-  }
-
-
-}
-
 export {
   start,
-  ownerJid
+  queueMessage
 }

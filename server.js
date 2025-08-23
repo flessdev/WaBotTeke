@@ -5,9 +5,11 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 
 import qrcode from 'qrcode';
-import * as bot from './bot.js';
 import * as func from './functions.js';
 import os from 'os';
+import { getIsActive, getOwnerJid } from './botState.js';
+import { queueMessage } from './messageQueue.js';
+import { getQR } from './qrState.js';
 
 const PORT = process.env.PORT || 80;
 
@@ -146,10 +148,8 @@ io.on('connection', socket => {
   if (bot.getIsActive()) return socket.emit('alert', 'The bot is already active.')
 
   socket.on('pageLoaded', () => {
-    if (!f.getQR) return
-    const qr = f.getQR()
-    if (!qr) return
-    sendQR(qr)
+    const qr = getQR();
+    if (qr) sendQR(qr);
   })
 
   socket.on('request-code', async (phone) => {
@@ -207,7 +207,7 @@ export function setEvents(value){
 
 
 app.get('/', (req, res) => {
-  if (bot?.getIsActive()) {
+  if (getIsActive()) {
     const body = createHtml({body: `<h2>✅ Ya estás logueado en WhatsApp</h2>`})
     res.send(body);
     //bot.start()
@@ -227,9 +227,7 @@ app.get('/bot', async (req, res) => {
   const url = decodeURIComponent(req.query.url);
 
   res.send('URL recibida: ' + url);
-  while (!bot.getIsActive()) await func.pause()
-
-  bot.sendMessage(bot.ownerJid, { text: "-doc "+ url })
+  queueMessage(getOwnerJid(), { text: "-doc " + url });
 });
 
 app.get('/owner', (req, res) => {
