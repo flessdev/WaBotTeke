@@ -19,7 +19,7 @@ let anotherEvents = {};
 
 process.on('unhandledRejection', async error => {
   console.error('UnhandledRejection:', error);
-  if (bot.isActive) {
+  if (bot.getIsActive()) {
     await bot.sendMessage(bot.ownerJid, { text: 'UnhandledRejection: ' + error.stack })
     setTimeout(() => process.exit(1), 200);
     return

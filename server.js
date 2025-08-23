@@ -143,7 +143,7 @@ const perNumberState = new Map() // phone -> { last: number, pending: boolean }
 
 io.on('connection', socket => {
   console.log('client connected', socket.id)
-  if (bot.isActive) return socket.emit('alert', 'The bot is already active.')
+  if (bot.getIsActive()) return socket.emit('alert', 'The bot is already active.')
   
   socket.on('pageLoaded', () => {
     if (!f.getQR) return
@@ -207,7 +207,7 @@ export function setEvents(value){
 
 
 app.get('/', (req, res) => {
-  if (bot.isActive) {
+  if (bot.getIsActive()) {
     const body = createHtml({body: `<h2>✅ Ya estás logueado en WhatsApp</h2>`})
     res.send(body);
     bot.start()
@@ -227,7 +227,7 @@ app.get('/bot', async (req, res) => {
   const url = decodeURIComponent(req.query.url);
   
   res.send('URL recibida: ' + url);
-  while (!bot.isActive) await func.pause()
+  while (!bot.getIsActive()) await func.pause()
   
   bot.sendMessage(bot.ownerId, { text: `downloading...` })
   if (url.startsWith('https://www.youtube.com')) {
