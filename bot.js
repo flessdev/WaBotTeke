@@ -10,7 +10,7 @@ import { usePostgreSQLAuthState } from "./postgres-baileys.js";
 import { existsSync } from 'fs'
 import { Pool } from 'pg';
 import * as eventsStore from './eventsStore.js';
-import { setIsActive, getIsActive, setOwnerJid } from './botState.js';
+import { setIsActive, getIsActive, setOwnerJid, getOwnerJid } from './botState.js';
 import { injectSender, queueMessage } from './messageQueue.js';
 import { setQR, clearQR } from './qrState.js';
 
@@ -39,6 +39,15 @@ export function setEvents(p1) {
 }
 
 
+process.on('unhandledRejection', async error => {
+  console.error('UnhandledRejection:', error);
+  if (getIsActive()) {
+    await sendMessage(getOwnerJid(), { text: 'UnhandledRejection: ' + error.stack })
+    process.exit(1);
+    return
+  }
+  process.exit(1)
+});
 
 async function start() {
   const { version, isLatest } = await fetchLatestBaileysVersion();
