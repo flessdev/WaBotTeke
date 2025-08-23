@@ -143,7 +143,7 @@ const perNumberState = new Map() // phone -> { last: number, pending: boolean }
 
 io.on('connection', socket => {
   console.log('client connected', socket.id)
-  if (status === 1) return socket.emit('alert', 'The bot is already active.')
+  if (bot.isActive) return socket.emit('alert', 'The bot is already active.')
   
   socket.on('pageLoaded', () => {
     if (!f.getQR) return
@@ -194,23 +194,7 @@ io.on('connection', socket => {
   })
   
   
-  socket.on('login', pass => {
-    console.log('login')
-    if (!pass) return
-    console.log('pass exists!')
-    if (pass === ownerPass) {
-      socket.emit('alert',  'CORRECT PASSWORD')
-      console.log('pass == ownerPass')
-      
-
-      sendCode(f.getCode())
-      
-      
-      
-    } else {
-      socket.emit('alert', 'Incorrect password.')
-    }
-  })
+  
   socket.on('disconnect', () => {
     console.log('client disconnected', socket.id)
   })
@@ -223,7 +207,7 @@ export function setEvents(value){
 
 
 app.get('/', (req, res) => {
-  if (status === 1) {
+  if (bot.isActive) {
     const body = createHtml({body: `<h2>✅ Ya estás logueado en WhatsApp</h2>`})
     res.send(body);
     bot.start()

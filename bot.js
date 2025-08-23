@@ -15,9 +15,6 @@ import { saveEvents, getEvents } from './eventsStore.js';
 let QR
 server.f.getQR = () => QR
 
-let CODE = "Code";
-server.f.getCode = () => CODE;
-
 server.setStatus(0)
 let session = null;
 let sessionPromiseResolver
@@ -43,7 +40,7 @@ export function setEvents(p1) {
   events = p1
 }
 
-export const MODES = ["qr", "pairingCode"]
+export let isActive = false;
 
 async function start() {
   const { version, isLatest } = await fetchLatestBaileysVersion()
@@ -93,6 +90,7 @@ async function start() {
     const { connection, lastDisconnect, qr } = update;
 
     if (update.connection == "open") {
+      bot.isActive = true;
       ownerJid = session.user.id.replace(/:\d+/, '')
       botNumber = ownerJid.slice(0, -15)
       console.log(`🔴 Connected. ID: ${ownerJid}`)
@@ -109,6 +107,7 @@ async function start() {
     }
 
     if (update.connection === "close") {
+      isActive = false;
       console.log("session is closed")
       const status = lastDisconnect?.error?.output?.statusCode;
       console.log(status)
@@ -132,7 +131,7 @@ async function start() {
 
     if (update.receivedPendingNotifications) {
       console.log('receivePendingNotifications')
-      server.setStatus(1)
+      isActive = true;
     }
   })
 
@@ -188,9 +187,9 @@ async function start() {
         msg;
 
       const qmsg = unwrap(q);
-      if (!qmsg?.videoMessage) {
+      /*if (!qmsg?.videoMessage) {
         return queueMessage(id, { text: '❌ Cita un video válido' });
-      }
+      }*/
 
       const forwardable = {
         key: {
@@ -228,36 +227,7 @@ async function start() {
       }
     }
 
-    const targetPath = 'tempfile.bin';
-    //try {
-    //  fs.unlinkSync(targetPath)
-    //  console.log('Archivo eliminado correctamente');
-    //} catch (error) {
-    //  console.log('Error al eliminar el archivo:', error);
-    //}
-
-    if (text.startsWith('-vid ')) {
-      let link = text.slice(5);
-      await session.sendMessage(
-        id,
-        {
-          video: {
-            url: link
-          },
-          caption: 'hello word',
-
-        }
-      )
-    }
-
-    /*if (text.startsWith('-url')) {
-      let link = text.slice(4);
-      console.log('Downloading', link, '👇')
-      await session.sendMessage(id, { text: `downloading...` })
-      await session.sendMessage(id, { document: { url: link } });
-    }*/
-
-
+    
     if (text.startsWith('-url')) {
       let link = text.slice(4).trim();
       console.log('Downloading...', link, '👇');
@@ -298,108 +268,38 @@ async function start() {
       });
     }
 
-    if (text.startsWith('-test')) {
-      let link = text.slice(5);
-      await session.sendMessage(id, { text: `downloading test...` })
-      axios.get(link, { responseType: 'stream' })
-        .then(response => {
-          const readableStream = new Readable();
-          readableStream._read = () => {}; // Dummy function, no se necesita implementar nada aquí
-
-          response.data.on('data', chunk => {
-            readableStream.push(chunk);
-          });
-
-          response.data.on('end', () => {
-            readableStream.push(null); // Finalizar el flujo
-
-            session.sendMessage(id, { document: { stream: readableStream } });
-            // Aquí puedes hacer lo que necesites con la variable 'document'
-
-            console.log('¡Descarga completada!');
-          });
-        })
-        .catch(error => {
-          console.error('Error al descargar el video:', error);
-        });
-
-
-    }
-
-
-
-    if (text.startsWith('-yt')) {
-      let link = text.slice(3);
-      try {
-        const ytstream = await ytdl(link, {
-          filter: 'videoandaudio',
-          quality: 'highestvideo'
-        });
-        console.log(link + ' descargando...');
-        await session.sendMessage(id, { text: `${link} descargando...` });
-        session.sendMessage(id, {
-          document: { stream: ytstream },
-          mimetype: 'video/mp4'
-        });
-      } catch (error) {
-        console.error('Error al descargar video de YT:', error);
-        await session.sendMessage(id, { text: `Error al descargar video de YT` });
-      }
-    }
-
-    if (text.startsWith('-360')) {
-      let link = text.slice(4)
-      let ytstream = ytdl(link, {
-        filter: 'videoandaudio'
-      })
-      await session.sendMessage(id, { text: `downloading 360...` })
-      session.sendMessage(id, { document: { stream: ytstream }, mimetype: 'video/mp4' });
-
-    }
-
-    if (text.startsWith('-ab')) {
-      let link = text.slice(3);
-      console.log('downloading ', link);
-      func.sendByChunks(id, link, 1, 4)
-    }
-
-
-
+   
   })
 
 }
 
 const isSessionInitialized = () => !!(session?.authState?.creds);
 
-export async function requestPairingCode(numberx) {
+export async function requestPairingCode(number) {
   if (!isSessionInitialized()) {
     console.error('Sesión no inicializada correctamente');
     return;
   }
 
   if (!session?.authState?.creds?.registered) {
-    const number = numberx
     try {
-      const code = await session.requestPairingCode(number);
-      CODE = code;
-
-      return code;
+      return await session.requestPairingCode(number);
     } catch (e) {
       return "Error al solitar código " + e.stack
     }
-
-    //console.clear();
-    //console.log(code)
-    //server.sendCode(code)
   }
 }
 
 export async function sendMessage(...args) {
-  if (!isSessionInitialized) {
-    console.error('Sesión no inicializada correctamente');
+  if (isActive) {
+    console.error('Bot aún no activo para enviar mensajes');
     return;
   } else {
-    session?.sendMessage(...args);
+    try{
+      return await session?.sendMessage(...args);
+    }catch(e){
+      return console.log('Error al enviar mensaje: '+ e)
+    }
   }
 
 }
@@ -433,13 +333,7 @@ async function processQueue() {
 
 }
 
-function isLoggedIn() {
-  const authPath = path.join(__dirname, 'auth', 'creds.json');
-  return fs.existsSync(authPath);
-}
-
 export {
   start,
-  ownerJid,
-  isLoggedIn
+  ownerJid
 }
