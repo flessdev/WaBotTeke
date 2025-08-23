@@ -15,7 +15,7 @@ import { saveEvents, getEvents } from './eventsStore.js';
 let QR
 server.f.getQR = () => QR
 let isActive = false;
-const getIsActive =_=> isActive;
+export const getIsActive =_=> isActive;
 
 let session = null;
 let sessionPromiseResolver
