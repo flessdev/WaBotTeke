@@ -14,8 +14,8 @@ import { saveEvents, getEvents } from './eventsStore.js';
 
 let QR
 server.f.getQR = () => QR
+export let isActive = false;
 
-server.setStatus(0)
 let session = null;
 let sessionPromiseResolver
 let botNumber, ownerJid;
@@ -40,7 +40,7 @@ export function setEvents(p1) {
   events = p1
 }
 
-export let isActive = false;
+
 
 async function start() {
   const { version, isLatest } = await fetchLatestBaileysVersion()
@@ -94,12 +94,8 @@ async function start() {
       ownerJid = session.user.id.replace(/:\d+/, '')
       botNumber = ownerJid.slice(0, -15)
       console.log(`🔴 Connected. ID: ${ownerJid}`)
-
+      await new Promise(resolve => setTimeout(resolve, 200));
       if (events.when_ready) await events.when_ready()
-
-      //sessionPromiseResolver(session)
-
-
     }
     if (qr) {
       QR = qr
