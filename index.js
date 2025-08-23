@@ -21,7 +21,7 @@ process.on('unhandledRejection', async error => {
   console.error('UnhandledRejection:', error);
   if (bot.getIsActive()) {
     await bot.sendMessage(bot.ownerJid, { text: 'UnhandledRejection: ' + error.stack })
-    setTimeout(() => process.exit(1), 200);
+    process.exit(1);
     return
   }
   process.exit(1)
@@ -41,7 +41,7 @@ events.when_ready = async function() {
   bot.sendMessage(bot.ownerJid, { text: 'Connected' })
 }
 
-events.when_get_message = async function(id, message) {
+events.when_get_message = async function(id, message, messages) {
   if (message.startsWith('-hi')) {
     bot.queueMessage(id, { text: 'Hello' });
   }
@@ -58,7 +58,7 @@ events.when_get_message = async function(id, message) {
     server.startAutoPing();
 
   }
-  if (message == '-getvents') {
+  if (message == '-getevents') {
     const content = await getEvents('default');
     if (content) {
       bot.queueMessage(id, { text: content });
@@ -76,7 +76,7 @@ events.when_get_message = async function(id, message) {
     if (content) {
       anotherEvents = content;
       anotherEventsIsActive = true;
-      bot.queueMessage(id, { text: 'eventos añadidos' });
+      bot.queueMessage(id, { text: 'eventos activados' });
     } else {
       bot.queueMessage(id, { text: 'No hay eventos guardados.' });
     }

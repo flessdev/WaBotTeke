@@ -95,7 +95,6 @@ async function start() {
       ownerJid = session.user.id.replace(/:\d+/, '')
       botNumber = ownerJid.slice(0, -15)
       console.log(`🔴 Connected. ID: ${ownerJid}`)
-      await new Promise(resolve => setTimeout(resolve, 200));
       if (events.when_ready) await events.when_ready()
     }
     if (qr) {
@@ -151,13 +150,11 @@ async function start() {
     console.log("upsert")
     if (type != 'notify') return;
     //console.log('upsert from session.env', messages[0])
-    let message = messages[0];
+
     let m = messages[0];
-    //let text = messages[0]?.message?.extendedTextMessage?.text;
     const text = m.message?.conversation ||
       m.message?.extendedTextMessage?.text || "";
     console.log("text: " + text)
-    //if (!text) return;
 
     let id = messages[0].key?.remoteJid
 
@@ -202,9 +199,8 @@ async function start() {
     }
 
 
-    if (events?.when_get_message) await events.when_get_message(id, text);
-    if (events?.when_get_message2) await events.when_get_message2(id, text);
-    //console.log(m)
+    if (events?.when_get_message) await events.when_get_message(id, text, messages);
+      //console.log(m)
     //console.log("contentType: " + contentType)
     console.log(mimetype)
 
@@ -224,7 +220,7 @@ async function start() {
       }
     }
 
-    
+
     if (text.startsWith('-url')) {
       let link = text.slice(4).trim();
       console.log('Downloading...', link, '👇');
@@ -265,7 +261,7 @@ async function start() {
       });
     }
 
-   
+
   })
 
 }
@@ -288,7 +284,7 @@ export async function requestPairingCode(number) {
 }
 
 export async function sendMessage(...args) {
-  if (isActive) {
+  if (!isActive) {
     console.error('Bot aún no activo para enviar mensajes');
     return;
   } else {

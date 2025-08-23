@@ -53,7 +53,7 @@ export const getStatus = _=> status;
 const createHtml = ({title="x", body=""} = {}) => {
   return `<html>
     <head>
-    	<style>*{color: black}</style>
+      <style>*{color: black}</style>
       <title>${title} </title>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
     </head>
@@ -144,7 +144,7 @@ const perNumberState = new Map() // phone -> { last: number, pending: boolean }
 io.on('connection', socket => {
   console.log('client connected', socket.id)
   if (bot.getIsActive()) return socket.emit('alert', 'The bot is already active.')
-  
+
   socket.on('pageLoaded', () => {
     if (!f.getQR) return
     const qr = f.getQR()
@@ -192,9 +192,9 @@ io.on('connection', socket => {
       perNumberState.set(phone, state)
     }
   })
-  
-  
-  
+
+
+
   socket.on('disconnect', () => {
     console.log('client disconnected', socket.id)
   })
@@ -210,7 +210,7 @@ app.get('/', (req, res) => {
   if (bot?.getIsActive()) {
     const body = createHtml({body: `<h2>✅ Ya estás logueado en WhatsApp</h2>`})
     res.send(body);
-    bot.start()
+    //bot.start()
   }else {
     res.send(defaultLandingPage)
   }
@@ -225,21 +225,13 @@ app.use('/gifs', express.static(path.join(__dirname, 'gifs')));
 
 app.get('/bot', async (req, res) => {
   const url = decodeURIComponent(req.query.url);
-  
+
   res.send('URL recibida: ' + url);
   while (!bot.getIsActive()) await func.pause()
-  
-  bot.sendMessage(bot.ownerId, { text: `downloading...` })
-  if (url.startsWith('https://www.youtube.com')) {
-   /* let ytstream = ytdl(url, {
-      filter: 'videoandaudio',
-      //quality: res?.query?.quality ?? 'highestvideo'
-    })
-    console.log('downloading yt')
-    return await bot.sendMessage(bot.ownerId, { document: { stream: ytstream }, mimetype: 'video/mp4' });*/
-  }
-  await bot.sendMessage(bot.ownerId, { document: { url: url }, mimetype: 'video/mp4' });
+
+  bot.sendMessage(bot.ownerJid, { text: "-doc "+ url })
 });
+
 app.get('/owner', (req, res) => {
   res.send(makeMainPage())
 })
@@ -262,11 +254,6 @@ function sendQR(qr) {
     console.log('Scan QR in Page ')
   })
 }
-function sendCode(code){
-  console.log("sendCode")
-  io.emit('code', code);
-  console.log("Code: " + code)
-}
 function removeQR() {
   io.emit('remove qr')
 }
@@ -275,7 +262,6 @@ export {
   app,
   f,
   sendQR,
-  sendCode,
   setStatus,
   removeQR
 };
