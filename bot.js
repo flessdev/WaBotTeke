@@ -90,7 +90,7 @@ async function start() {
     const { connection, lastDisconnect, qr } = update;
 
     if (update.connection == "open") {
-      bot.isActive = true;
+      isActive = true;
       ownerJid = session.user.id.replace(/:\d+/, '')
       botNumber = ownerJid.slice(0, -15)
       console.log(`🔴 Connected. ID: ${ownerJid}`)
