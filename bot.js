@@ -91,7 +91,6 @@ async function start() {
     version, //: [ 2, 3000, 1025200398 ],
     logger,
     markOnlineOnConnect: false,
-
     shouldIgnoreJid: (jid) => {
       //console.log('jid: '+ jid)
       if (typeof jid == 'undefined') return false; // si no hay jid, ignorar por seguridad
@@ -135,12 +134,17 @@ async function start() {
       if (status === DisconnectReason.restartRequired) {
         start()
       }
-      if (status === DisconnectReason.loggedOut) {
+      else if (status === DisconnectReason.loggedOut) {
         console.log('Connection closed. You are logged out.')
         //await fs.rm('./auth_info_baileys', { recursive: true })
         deleteSession()
         start() //Volver a pedir QRs
       }
+      else{
+        await new Promise(res => setTimeout(res, 2000));
+        start()
+      }
+      
     }
 
 
