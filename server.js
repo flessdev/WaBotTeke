@@ -10,6 +10,10 @@ import os from 'os';
 import { getIsActive, getOwnerJid } from './botState.js';
 import { queueMessage } from './messageQueue.js';
 import { getQR } from './qrState.js';
+import { dispatch } from './commandEngine.js';
+import './events7.commands.js';
+import { buildCtx } from './buildCtx.js';
+import { runEventsFromWA } from './eventsAdapter.js';
 
 const PORT = process.env.PORT || 80;
 
@@ -224,18 +228,17 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/gifs', express.static(path.join(__dirname, 'gifs')));
 
 app.get('/bot', async (req, res) => {
-  const url = decodeURIComponent(req.query.url);
-  const cmd = decodeURIComponent(req.query.cmd);
+  const url = decodeURIComponent(req.query.url) || "";
+  const cmd = decodeURIComponent(req.query.cmd) || "";
   //res.send('URL recibida: ' + url);
-  
-  const cmdLine = `${cmd} ${url || ''}`.trim();
-  await dispatch(cmdLine, buildCtx({
-    id: getOwnerJid(),
-    message: { conversation: cmdLine },
-    messages: [],
-    queueMessage,
-    bot: b
-  }));
+
+  const messageObj = {
+    message: { conversation: `${cmd} ${url}` }
+  };
+
+  await runEventsFromWA({
+    messages: [messageObj]
+  });
   res.send('✅ Ejecutado');
 });
 

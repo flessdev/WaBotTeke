@@ -13,6 +13,7 @@ import * as eventsStore from './eventsStore.js';
 import { setIsActive, getIsActive, setOwnerJid, getOwnerJid } from './botState.js';
 import { injectSender, queueMessage } from './messageQueue.js';
 import { setQR, clearQR } from './qrState.js';
+import { runEventsFromWA } from './eventsAdapter.js';
 
 let session = null;
 let sessionPromiseResolver
@@ -40,14 +41,20 @@ export function setEvents(p1) {
 
 
 process.on('unhandledRejection', async error => {
-  console.error('UnhandledRejection:', error);
+  console.error('UnhandledRejection: ', error);
   if (getIsActive()) {
     await sendMessage(getOwnerJid(), { text: 'UnhandledRejection: ' + error.stack })
-    process.exit(1);
-    return
   }
   process.exit(1)
 });
+process.on('uncaughtException', async error => {
+  console.error("UncaughtException: ", error);
+  if (getIsActive()) {
+    await sendMessage(getOwnerJid(), { text: 'UnhandledRejection: ' + error.stack })
+  }
+  process.exit(1)
+});
+
 
 async function start() {
   const { version, isLatest } = await fetchLatestBaileysVersion();
@@ -74,7 +81,7 @@ async function start() {
 
   const sessionId = '1234';
   const { state, saveCreds, deleteSession } = await usePostgreSQLAuthState(pool, sessionId);
-  
+
   session = makeWASocket.default({
     auth: state,
     printQRInTerminal: false,
@@ -163,102 +170,14 @@ async function start() {
     //console.log('upsert from session.env', messages[0])
 
     let m = messages[0];
-    const text = m.message?.conversation ||
-      m.message?.extendedTextMessage?.text || "";
-    console.log("text: " + text)
-
     let id = m.key?.remoteJid
-
     if (!id || !isValidRecipient(id)) return; // ⚠️ NUEVA VALIDACIÓN
+    //if (events?.when_get_message) await events.when_get_message({messages});
 
-    const contentType = getContentType(m.message);
-    const caption = m.message[contentType]?.caption || "";
-    const mimetype = m.message[contentType]?.mimetype || ""
-    const m_url = m.message[contentType]?.url || "";
-
-    if (caption == "-geturl") {
-      queueMessage(id, { text: m_url })
-    }
-    if (text === '-fwd') {
-      const ci = m.message?.extendedTextMessage?.contextInfo;
-      const q = ci?.quotedMessage;
-      if (!q) return queueMessage(id, { text: '❌ Cita un mensaje válido' });
-
-      // Desenvuelve si viene en ephemeral o viewOnce
-      const unwrap = (msg) =>
-        msg?.ephemeralMessage?.message ||
-        msg?.viewOnceMessageV2?.message ||
-        msg?.viewOnceMessage?.message ||
-        msg;
-
-      const qmsg = unwrap(q);
-      /*if (!qmsg?.videoMessage) {
-        return queueMessage(id, { text: '❌ Cita un video válido' });
-      }*/
-
-      const forwardable = {
-        key: {
-          remoteJid: m.key.remoteJid,
-          id: ci.stanzaId,
-          fromMe: false,
-          participant: ci.participant
-        },
-        message: qmsg
-      };
-
-      await queueMessage(id, { forward: forwardable });
-    }
-
-
-    if (events?.when_get_message) await events.when_get_message({messages, downloadMediaMessage, eventsStore, queueMessage, sendMessage, getContentType});
-      //console.log(m)
-    //console.log("contentType: " + contentType)
-    console.log(mimetype)
-
-
-
-
-    if (text.startsWith('-url')) {
-      let link = text.slice(4).trim();
-      console.log('Downloading...', link, '👇');
-      await session.sendMessage(id, { text: `Downloading... 👇` });
-
-      // Extraer nombre y extensión del archivo
-      const urlParts = link.split('/');
-      const fileName = urlParts[urlParts.length - 1].split('?')[0]; // Elimina parámetros de URL si hay
-      const extension = fileName.split('.').pop().toLowerCase();
-
-      // Determinar tipo MIME básico
-      let mimeType;
-      if (['mp4', 'mov', 'avi'].includes(extension)) {
-        mimeType = 'video/' + extension;
-      } else if (['mp3', 'wav', 'ogg'].includes(extension)) {
-        mimeType = 'audio/' + extension;
-      } else if (['pdf'].includes(extension)) {
-        mimeType = 'application/pdf';
-      } else if (['doc', 'docx'].includes(extension)) {
-        mimeType = 'application/msword';
-      } else if (['xls', 'xlsx'].includes(extension)) {
-        mimeType = 'application/vnd.ms-excel';
-      } else if (['ppt', 'pptx'].includes(extension)) {
-        mimeType = 'application/vnd.ms-powerpoint';
-      } else if (['txt'].includes(extension)) {
-        mimeType = 'text/plain';
-      } else {
-        mimeType = 'application/octet-stream'; // genérico
-      }
-
-      // Enviar archivo con nombre y tipo
-      await session.sendMessage(id, {
-        document: {
-          url: link,
-          mimetype: mimeType,
-          fileName: fileName
-        }
-      });
-    }
-
-
+    await runEventsFromWA({
+      messages: messages
+    });
+    
   })
 
 }
