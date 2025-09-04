@@ -9,9 +9,11 @@ import * as eventsStore from './eventsStore.js';
 import * as botState from './botState.js';
 import * as eventsState from './eventsState.js'
 import { Innertube } from 'youtubei.js';
+import { URL } from 'node:url';
 
 export function createEventsContext(b) {
   return {
+    URL,
     Buffer,
     Innertube,
     axios,
