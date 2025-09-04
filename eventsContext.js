@@ -12,6 +12,7 @@ import { Innertube } from 'youtubei.js';
 
 export function createEventsContext(b) {
   return {
+    Buffer,
     Innertube,
     axios,
     fetch,

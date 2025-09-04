@@ -16,6 +16,7 @@ async function processQueue() {
     isSending = false;
     return;
   }
+  setTimeout(processQueue, 1000);
 
   isSending = true;
   const { jid, content } = queue.shift();
@@ -29,5 +30,5 @@ async function processQueue() {
   }
 
   // espera 1 segundo antes de siguiente envío
-  setTimeout(processQueue, 1000);
+  
 }
