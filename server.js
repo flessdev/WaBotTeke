@@ -14,6 +14,7 @@ import { dispatch } from './commandEngine.js';
 import './events7.commands.js';
 import { buildCtx } from './buildCtx.js';
 import { runEventsFromWA } from './eventsAdapter.js';
+import * as bot from  './bot.js';
 
 const PORT = process.env.PORT || 80;
 
@@ -149,7 +150,7 @@ const perNumberState = new Map() // phone -> { last: number, pending: boolean }
 
 io.on('connection', socket => {
   console.log('client connected', socket.id)
-  if (bot.getIsActive()) return socket.emit('alert', 'The bot is already active.')
+  if (getIsActive()) return socket.emit('alert', 'The bot is already active.')
 
   socket.on('pageLoaded', () => {
     const qr = getQR();

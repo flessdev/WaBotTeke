@@ -65,7 +65,7 @@ export const initAuthCreds = () => {
 };
 
 // Clase PostgreSQLAuthState adaptada
-class PostgreSQLAuthState {
+/*class PostgreSQLAuthState {
   constructor(poolOrConfig, sessionId) {
     this.pool = poolOrConfig instanceof Pool ? poolOrConfig : new Pool(poolOrConfig);
     this.sessionId = sessionId;
@@ -78,7 +78,25 @@ class PostgreSQLAuthState {
         data TEXT NOT NULL
       )
     `);
+  }*/
+class PostgreSQLAuthState {
+  constructor(poolOrConfig, sessionId) {
+    this.pool = poolOrConfig instanceof Pool ? poolOrConfig : new Pool(poolOrConfig);
+    this.sessionId = sessionId;
   }
+
+  async init() {
+    await this.executeQuery(`
+      CREATE TABLE IF NOT EXISTS auth_data (
+        session_key VARCHAR(255) PRIMARY KEY,
+        data TEXT NOT NULL
+      )
+    `);
+  }
+
+  // ... resto de métodos igual ...
+
+
   getKey(k) { return `${this.sessionId}:${k}`; }
   async executeQuery(q, params = []) {
     const client = await this.pool.connect();
@@ -150,8 +168,19 @@ class PostgreSQLAuthState {
 }
 
 // Wrapper de uso
+/*export async function usePostgreSQLAuthState(poolOrConfig, sessionId) {
+  const authState = new PostgreSQLAuthState(poolOrConfig, sessionId);
+  const state = await authState.getAuthState();
+  return {
+    state,
+    saveCreds: async () => { await authState.saveCreds(state.creds); },
+    deleteSession: async () => { await authState.deleteSession(); }
+  };
+}*/
+
 export async function usePostgreSQLAuthState(poolOrConfig, sessionId) {
   const authState = new PostgreSQLAuthState(poolOrConfig, sessionId);
+  await authState.init(); // aseguras que la tabla existe antes de nada
   const state = await authState.getAuthState();
   return {
     state,

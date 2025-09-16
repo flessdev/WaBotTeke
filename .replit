@@ -10,3 +10,6 @@ run = ["sh", "-c", "node index.js"]
 [[ports]]
 localPort = 80
 externalPort = 80
+
+[agent]
+expertMode = true
