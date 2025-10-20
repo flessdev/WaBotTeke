@@ -59,16 +59,16 @@ process.on('uncaughtException', async error => {
 async function start() {
   const { version, isLatest } = await fetchLatestBaileysVersion();
   injectSender(async (jid, content) => {
-    try{
+    try {
       await session.sendMessage(jid, content)
     } catch (e) {
-      console.error(e);// Tab to edit
+      console.error(e); // Tab to edit
     }
   });
-
+  
   console.log('Versión de WhatsApp Web:', version)
   console.log('¿Es la más reciente?', isLatest)
-
+  
   const pool = new Pool({
     /*host: process.env.POSTGRES_HOST,
     port: 5432,
@@ -78,10 +78,10 @@ async function start() {
     connectionString: process.env.PG_DATABASE_URL,
     ssl: true
   });
-
+  
   const sessionId = '1234';
   const { state, saveCreds, deleteSession } = await usePostgreSQLAuthState(pool, sessionId);
-
+  
   session = makeWASocket.default({
     auth: state,
     printQRInTerminal: false,
@@ -99,14 +99,11 @@ async function start() {
       //return true // ignora mensajes entrantes
     }
   })
-  session.ev.on('creds.update', saveCreds)
-
-
-
-
+  session.ev.on('creds.update', saveCreds);
+  
   session.ev.on("connection.update", async update => {
     const { connection, lastDisconnect, qr } = update;
-
+    
     if (update.connection == "open") {
       setIsActive(true);
       const cleanOwner = session.user.id.replace(/:\d+/, '');
@@ -118,20 +115,21 @@ async function start() {
     if (qr) {
       setQR(qr);
     }
-
+    
     if (update.connection === "close") {
       setIsActive(false);
       clearQR();
       console.log("session is closed")
       const status = lastDisconnect?.error?.output?.statusCode;
-      console.log(status)
+      console.log("status "+ status)
       /*if (lastDisconnect?.error?.output?.statusCode === 401) {
         console.log("UNAUTHORIZED. Deleting login data...");
         await fs.rm('./auth_info_baileys', { recursive: true })   
       }
       setTimeout(start, 5000)*/
-
+      
       if (status === DisconnectReason.restartRequired) {
+        console.log("restartRequired -> start()")
         start()
       }
       else if (status === DisconnectReason.loggedOut) {
@@ -140,25 +138,28 @@ async function start() {
         deleteSession()
         start() //Volver a pedir QRs
       }
-      else{
+      else {
+        console.log("Else close")
         await new Promise(res => setTimeout(res, 2000));
+        deleteSession()
         start()
+      
       }
       
     }
-
-
+    
+    
     if (update.receivedPendingNotifications) {
       console.log('receivePendingNotifications')
     }
   })
-
+  
   console.log('MESSAGES UPSERT EVENT 👇')
-
+  
   function isValidRecipient(jid) {
     return jid && jid.endsWith('@s.whatsapp.net');
   }
-
+  
   function unwrapMessage(msg) {
     return msg?.ephemeralMessage?.message ||
       msg?.viewOnceMessageV2?.message ||
@@ -167,23 +168,23 @@ async function start() {
       ||
       msg
   }
-
+  
   session.ev.on('messages.upsert', async ({ type, messages }) => {
     console.log("upsert")
     if (type != 'notify') return;
     //console.log('upsert from session.env', messages[0])
-
+    
     let m = messages[0];
     let id = m.key?.remoteJid
     if (!id || !isValidRecipient(id)) return; // ⚠️ NUEVA VALIDACIÓN
     //if (events?.when_get_message) await events.when_get_message({messages});
-
+    
     await runEventsFromWA({
       messages: messages
     });
     
   })
-
+  
 }
 
 const isSessionInitialized = () => !!(session?.authState?.creds);
@@ -193,7 +194,7 @@ export async function requestPairingCode(number) {
     console.error('Sesión no inicializada correctamente');
     return;
   }
-
+  
   if (!session?.authState?.creds?.registered) {
     try {
       return await session.requestPairingCode(number);
@@ -208,13 +209,13 @@ export async function sendMessage(...args) {
     console.error('Bot aún no activo para enviar mensajes');
     return;
   } else {
-    try{
+    try {
       return await session?.sendMessage(...args);
-    }catch(e){
-      return console.log('Error al enviar mensaje: '+ e)
+    } catch (e) {
+      return console.log('Error al enviar mensaje: ' + e)
     }
   }
-
+  
 }
 
 export {
